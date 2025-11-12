@@ -9,13 +9,19 @@ std::map<std::string, std::string> cell_names = {
     {"2", "mover"},
     {"3", "generator"},
     {"4", "push"},
+    {"5", "slide"},
+    {"9", "rotator_cw"},
+    {"10", "rotator_ccw"},
+    {"12", "trash"},
+    {"13", "enemy"},
     {"41", "ghost"}
 };
 
 // Definitions for global textures (needed for linker)
 
 std::map<std::string, sf::Texture> cell_images;
-std::vector<std::pair<std::string, sf::Texture>> cell_images_raw;
+// MEMORY FIX: Removed duplicate texture storage
+// std::vector<std::pair<std::string, sf::Texture>> cell_images_raw; // No longer needed
 
 vector<vector<vector<string>>> cell_cats_new = {
     {}, // Tools

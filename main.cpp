@@ -10,7 +10,7 @@ string VERSION = "1.0.0pr5";
 string MAINTAINER = "AzurusTheFirst";
 string STATUS = "prerelease";
 
-string ROOT = (true ? "" : "sfml/");
+string ROOT = ("/Users/kgvadmin/Documents/GitHub/final machine/");
 int DEFAULT_TILE_SIZE = 16;
 
 

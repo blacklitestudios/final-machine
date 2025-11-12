@@ -1,0 +1,7 @@
+[
+    {
+        "key": "cmd+shift+l",
+        "command": "workbench.action.tasks.runTask",
+        "args": "C/C++: g++ build with sanitizers (debug)"
+    }
+]
