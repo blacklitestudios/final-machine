@@ -123,7 +123,7 @@ class Cell: public enable_shared_from_this<Cell> /* i have no idea what this doe
 
     set<qual> on_force(
         int dir, 
-        shared_ptr<Cell> origin, 
+        Cell* origin, 
         string force_type, 
         int displacement, 
         map<string, bool> flags, // suppress is moved here
@@ -132,7 +132,7 @@ class Cell: public enable_shared_from_this<Cell> /* i have no idea what this doe
     );
 
     void do_push(int dir);
-    bool push(int dir, bool move, int hp=1, int force=0, int speed=1, bool bypass_bias = false, shared_ptr<Cell> prev = nullptr, bool is_true=false);
+    bool push(int dir, bool move, int hp=1, int force=0, int speed=1, bool bypass_bias = false, Cell* prev = nullptr, bool is_true=false);
 
     void do_gen(int dir);
     bool test_gen(int dir, int angle=0);
@@ -152,7 +152,7 @@ class Cell: public enable_shared_from_this<Cell> /* i have no idea what this doe
 
     sf::Sprite& getSprite();
 
-    bool mexican_standoff(shared_ptr<Cell> cell, bool destroy=true);
+    bool mexican_standoff(Cell* cell, bool destroy=true);
     void check_hp();
 
     set<string>& get_side(float dir2);

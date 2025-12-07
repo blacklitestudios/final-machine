@@ -1,7 +1,14 @@
 #ifndef BUTTON_HPP
 #define BUTTON_HPP
 
-#include <bits/stdc++.h>
+#include <memory>
+#include <set>
+#include <unordered_set>
+#include <map>
+#include <unordered_map>
+#include <string>
+#include <vector>
+#include <cmath>
 #include <SFML/Graphics.hpp>
 
 using namespace std;
@@ -13,39 +20,45 @@ class MenuSubItem {
 public:
     MenuSubItem();
     MenuSubItem(string id, CelPython* game);
-    void update(const sf::Vector2i& mouse, bool mousePressed, int current_menu, int current_submenu);
+    bool update(const sf::Vector2i& mouse, bool mousePressed, int current_menu, int current_submenu);
+    bool handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu, int current_submenu);
     void draw(sf::RenderWindow& window);
 
     sf::Texture image;
     sf::Sprite sprite;
-    std::string id;
+    string id;
     float alpha;
+    float brightness;
     CelPython* game;
+    bool block;
+    int x, y;
 };
 
 class MenuSubCategory {
 public:
     MenuSubCategory();
     MenuSubCategory(string id, CelPython* game);
-    void update(const sf::Vector2i& mouse, bool mousePressed, int current_menu);
-    void handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu);
+    bool update(const sf::Vector2i& mouse, bool mousePressed, int current_menu, int current_submenu);
+    bool handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu, int current_submenu);
     void draw(sf::RenderWindow& window);
 
     sf::Texture image;
     sf::Sprite sprite;
-    int id;
+    string id;
     float alpha;
+    float brightness;
     CelPython* game;
     bool block;
+    int x, y;
 };
 
 class Button {
 public:
     Button();
     Button(CelPython* game, const std::string& img, const sf::Vector2f& size, float rot = 0, const sf::Color& tint = sf::Color::White);
-    void update(const sf::Vector2i& mouse, bool mousePressed);
+    bool update(const sf::Vector2i& mouse, bool mousePressed);
     void draw(sf::RenderWindow& window);
-    void handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu);
+    bool handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu);
 
     sf::Texture image;
     sf::Sprite sprite;
@@ -59,9 +72,9 @@ class MenuButton {
 public:
     MenuButton();
     MenuButton(CelPython* game, const std::string& img, const sf::Vector2f& size, float rot = 0, const sf::Color& tint = sf::Color::White);
-    void update(const sf::Vector2i& mouse, bool mousePressed);
+    bool update(const sf::Vector2i& mouse, bool mousePressed);
     void draw(sf::RenderWindow& window);
-    void handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu);
+    bool handleClick(const sf::Vector2i& mouse, bool mousePressed, int current_menu);
 
     sf::Texture image;
     sf::Sprite sprite;
@@ -69,6 +82,8 @@ public:
     float brightness;
     sf::Color tint;
     CelPython* game;
+
+
 };
 
 #endif

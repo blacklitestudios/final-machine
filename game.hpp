@@ -3,7 +3,14 @@
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
-#include <bits/stdc++.h> // screw clang for not automatically implementing this
+#include <memory>
+#include <set>
+#include <unordered_set>
+#include <map>
+#include <unordered_map>
+#include <string>
+#include <vector>
+#include <cmath> // screw clang for not automatically implementing this
 
 #include "ui.hpp"
 #include "slider.hpp"
@@ -42,10 +49,11 @@ public:
     /* UI elements */
     sf::Font fps_font;
     bool menu_on = false;
-    int current_menu = 0;
+    int current_menu = -1;
+    int current_submenu = -1;
     vector<sf::FloatRect> toolbar_icon_rects;
     vector<MenuSubItem> toolbar_subicons;
-    unordered_map<int, MenuSubCategory> toolbar_subcategories;
+    unordered_map<string, MenuSubCategory> toolbar_subcategories;
 
     /* Game state */
     float scroll_speed = 250.0f;
@@ -103,6 +111,7 @@ public:
     optional<vector<shared_ptr<Cell>>> initial_below;
 
     /* UI components */
+    vector<bool> all_buttons;
     Button play_button;
     Button pause_button;
     Button step_button;
@@ -237,7 +246,8 @@ public:
     tuple<int, int, int, tuple<int, int>, int> increment_with_divergers(int x, int y, int dir, int force_type=0, bool displace=false);
     //void play();
 
-
+    private:
+    void draw_toolbar_buttons();
 
 
      

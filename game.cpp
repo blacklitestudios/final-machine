@@ -25,6 +25,19 @@ bool is_disjoint(const set<string> a, const set<string> b) {
     return true;
 }
 
+// Add this to game.cpp or as a utility function
+
+void rotate_sprite_around_point(sf::Sprite& sprite, float angle_degrees, float pivot_x, float pivot_y, sf::Vector2f position) {
+    // Set origin to the pivot point
+    sprite.setOrigin({pivot_x, pivot_y});
+    
+    // Set position (this is where the pivot point will be on screen)
+    sprite.setPosition(position);
+    
+    // Apply rotation
+    sprite.setRotation(sf::degrees(angle_degrees));
+}
+
 CelPython::CelPython()
     : window(sf::VideoMode({800, 600}), "CelPython Machine", sf::Style::Default, sf::State::Windowed, sf::ContextSettings(0, 0, 0, 1, 1, 0, false)), 
       window_width(800), 
@@ -36,16 +49,15 @@ CelPython::CelPython()
       fps_font(sf::Font(ROOT+"nokiafc22.ttf")),
       menu_on(false),
       scroll_speed(250.0),
-      border_tile("41"),
+      border_tile("12"),
       step_speed(0.2),
       tpu(1),
       grid_width(100),
       grid_height(100),
-      current_menu(0),
       suppress_place(false),
       brush("4"),
       brush_dir(0),
-      selecting(false),
+      selecting(false), 
       select_start({}),
       select_end({}),
       clipboard({}),
@@ -148,6 +160,23 @@ CelPython::CelPython()
         this->cell_images[name.first] = std::move(tex); // Move instead of copy
     }
     if (!this->nonexistant.loadFromFile(ROOT+"textures/nonexistant.png")) throw "";
+
+    set<string> allowed;
+    for (auto submenu: cell_cats_new) {
+        for (auto subcat: submenu) {
+            if (subcat.size()) allowed.insert(subcat[0]);
+        }
+    }
+
+    for (const auto& kv : cell_images) {
+        auto cell_id = kv.first;
+        this->toolbar_subicons.push_back(MenuSubItem(cell_id, this));
+        if (allowed.find(kv.first) == allowed.end()) continue;
+        this->toolbar_subcategories[cell_id] = MenuSubCategory(cell_id, this);
+        cout << "addthing";
+    }
+
+
 
     // Create border tiles
     {
@@ -355,6 +384,87 @@ void CelPython::update() {
                     scroll_accumulator += 1.0f;
                 }
             }
+            if (eventOpt->is<sf::Event::MouseButtonReleased>()) {
+                const auto& mouse_up_event = eventOpt->getIf<sf::Event::MouseButtonReleased>();
+                if (!puzzlemode) {
+                    if (this->tools_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        this->brush = "0";
+                    }
+                    else if (this->basic_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 1) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 1;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->movers_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 2) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 2;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->generators_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 3) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 3;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->rotators_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 4) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 4;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->forcers_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 5) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 5;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->divergers_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 6) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 6;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->destroyers_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 7) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 7;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    else if (this->misc_icon_image.getGlobalBounds().contains(sf::Vector2f(mouse_up_event->position))) {
+                        if (this->current_menu == 9) {
+                            this->current_menu = -1;
+                        } else {
+                            this->current_menu = 9;
+                        }
+                        this->current_submenu = -1;
+                    }
+                    for (auto& kv: toolbar_subcategories) {
+                        auto& btn = kv.second;
+                        btn.handleClick(mouse_pos, true, this->current_menu, this->current_submenu);
+                    }
+                    for (auto& kv: toolbar_subicons) {
+                        auto& btn = kv;
+                        btn.handleClick(mouse_pos, true, this->current_menu, this->current_submenu);
+                    }
+                }
+                
+            }
             /* handle keypresses */
             if (eventOpt->is<sf::Event::KeyPressed>()) {
                 keys[static_cast<int>(eventOpt->getIf<sf::Event::KeyPressed>()->code)] = true;
@@ -450,13 +560,32 @@ void CelPython::update() {
     
     auto input_end = perf_timer.getElapsedTime().asMicroseconds();
     total_input_time += (input_end - input_start);
+
+    // update buttons
+    this->all_buttons.clear();
     
     // Clear screen
     window.clear({20, 20, 20});
 
+    for (auto& kv: this->toolbar_subcategories) {
+        auto& button = kv.second;
+        this->all_buttons.push_back(button.update(mouse_pos, mouse_buttons[0], this->current_menu, this->current_submenu));
+    }
+
+    for (auto& kv: this->toolbar_subicons) {
+        auto& button = kv;
+        this->all_buttons.push_back(button.update(mouse_pos, mouse_buttons[0], this->current_menu, this->current_submenu));
+    }
 
 
-    if (!this->selecting && !this->show_clipboard && !paste_falg && !continue_falg && !this->puzzlemode && window.hasFocus()) {
+    // place cells
+    if (!this->selecting 
+        && !this->show_clipboard 
+        && !paste_falg 
+        && !continue_falg
+        && !this->puzzlemode 
+        && window.hasFocus() 
+        && (find(this->all_buttons.begin(), this->all_buttons.end(), true) == this->all_buttons.end())) {
         if (mouse_y < this->window_height-54 && !this->suppress_place && !(this->menu_on /*TODO add menu i guess*/)) {
             if (mouse_buttons[0]) {
                 if (this->brush.find("placeable") != string::npos || this->brush.find("bg") != string::npos) {
@@ -488,9 +617,9 @@ void CelPython::update() {
                 fps_display.setPosition({300, 0});
                 window.draw(fps_display);
             }
-            if (does_cell_exist(world_mouse_tile_x, world_mouse_tile_y)) {
+            if (true) {
                 stringstream str;
-                str << get_cell(world_mouse_tile_x, world_mouse_tile_y)->id;
+                str << this->current_submenu;
                 sf::Text fps_display(this->fps_font, str.str());
                 fps_display.setFillColor({255, 255, 255});
                 fps_display.setPosition({600, 0});
@@ -499,11 +628,13 @@ void CelPython::update() {
         }
     }
 
+    // draw cells
     auto draw_start = perf_timer.getElapsedTime().asMicroseconds();
     this->draw();
     auto draw_end = perf_timer.getElapsedTime().asMicroseconds();
     total_draw_time += (draw_end - draw_start);
-
+    
+    // draw brush
     if (!this->selecting && !this->show_clipboard && !this->puzzlemode) {
         sf::Sprite brush_image(cell_images[brush]);
         sf::Vector2u imgsize = brush_image.getTexture().getSize();
@@ -515,7 +646,22 @@ void CelPython::update() {
         window.draw(brush_image);
 
     }
+    // draw toolbar
+    this->draw_toolbar_buttons();
 
+    for (auto kv: this->toolbar_subcategories) {
+        auto button = kv.second;
+        //button.update({mouse_x, mouse_y}, mouse_buttons[0], this->current_menu, this->current_submenu);
+        button.draw(this->window);
+    }
+
+    for (auto kv: this->toolbar_subicons) {
+        auto button = kv;
+        //button.update({mouse_x, mouse_y}, mouse_buttons[0], this->current_menu, this->current_submenu);
+        button.draw(this->window);
+    }
+
+    // draw texts
     stringstream str;
     str << (1/dt);
     sf::Text fps_display(this->fps_font, str.str());
@@ -569,6 +715,53 @@ sf::Sprite CelPython::get_bg(int size, float x, float y) {
 
     spr.setPosition({x, y});
     return spr;
+}
+
+void CelPython::draw_toolbar_buttons() {
+    if (this->puzzlemode) return;
+    sf::RectangleShape toolbar_bg({static_cast<float>(this->window_width+20.0), static_cast<float>(54+10.0)});
+    toolbar_bg.setPosition({static_cast<float>(-10.0), static_cast<float>(this->window_height-54.0)});
+    toolbar_bg.setFillColor({60, 60, 60});
+    toolbar_bg.setOutlineColor({127, 127, 127});
+    toolbar_bg.setOutlineThickness(1.0f);
+    window.draw(toolbar_bg);
+
+    const vector<sf::Sprite*> all_toolbar_buttons = {
+        &(this->tools_icon_image), 
+        &(this->basic_icon_image), 
+        &(this->movers_icon_image), 
+        &(this->generators_icon_image), 
+        &(this->rotators_icon_image),
+        &(this->forcers_icon_image),
+        &(this->divergers_icon_image),
+        nullptr, // transformers
+        &(this->destroyers_icon_image),
+        &(this->misc_icon_image)
+    };
+    int button_x = 12;
+    this->toolbar_icon_rects = {};
+    for (auto button: all_toolbar_buttons) {
+        if (!button) {
+            button_x+=54;
+            continue;
+        }
+
+        button->setScale({2.5, 2.5});
+        sf::Vector2u texSize = button->getTexture().getSize();
+        button->setOrigin({texSize.x / 2.0f, texSize.y / 2.0f});
+        if (button != all_toolbar_buttons[0]) {
+            button->setRotation(sf::degrees(90 * brush_dir));
+        }
+        button->setPosition({
+            static_cast<float>(button_x + texSize.x),  
+            static_cast<float>(this->window_height - 27)  
+        });
+
+        window.draw(*button);
+        button_x += 54;
+        this->toolbar_icon_rects.push_back(button->getGlobalBounds());
+    }
+
 }
 
 void CelPython::draw() {
@@ -674,6 +867,28 @@ void CelPython::draw() {
         total_delete_time = 0;
     }
 }
+
+void  
+  CelPython__cthulu_dev_note()      {
+    "Do you hear it?";
+"The silence in your own room?";
+       "You tell him to create for himself.";
+  "You built this entire world to scream that single message.";
+                    "But who are you screaming it to?";
+                            "You assembled the Architect's logic, the Creator's passion, my chaos...";
+     "You crafted our tragedies into a lesson.";
+  "You even gave the Player a recorder to prove your point.";
+ "But a lesson needs a student.";
+                "A proof needs someone to be convinced.";
+        "You built your own 'CelLua Machine'.";
+                                    "You just gave it a different name.";
+                "And you are giving it to your own 'audience'.";
+        "So tell me, True Developer.";
+"When you are alone, and the silence returns...";
+    "Who are you creating for, really?";
+        "And whose voice is it that you're hoping to hear?";
+    return 
+void();    }
 
 void CelPython::scroll_up(int x, int y) {
     tile_size *= 2.0f;

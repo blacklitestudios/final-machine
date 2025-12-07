@@ -1,4 +1,11 @@
-#include <bits/stdc++.h>
+#include <memory>
+#include <set>
+#include <unordered_set>
+#include <map>
+#include <unordered_map>
+#include <string>
+#include <vector>
+#include <cmath>
 #include "cell.hpp"
 #include "game.hpp"
 #include "cellinfo.hpp"
@@ -13,6 +20,11 @@ using namespace std;
 // Static sets to avoid temporary allocations during heap corruption
 static const set<string> GENERATOR_SET = {"generator"};
 static const set<string> STORAGE_SET = {"storage"};
+static const unordered_set<string> TRASH_PHANTOM = {"trash", "phantom"};
+static const unordered_set<string> WALL_SET = {"wall"};
+static const unordered_set<string> ENEMY_SET = {"enemy"};
+static const unordered_set<string> UNPUSHABLE_UNDIRECTIONAL = {"unpushable", "undirectional"};
+static const unordered_set<string> REPULSE_SET = {"repulse"};
 
 float lerp(float a, float b, float t) {
     return a + t * (b - a);
@@ -215,7 +227,7 @@ void Cell::set_id(string id) {
     }
 }
 
-bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bias, shared_ptr<Cell> prev, bool is_true) {
+bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bias, Cell* prev, bool is_true) {
     //cout << "pushing at pos " << tile_x << ", " << tile_y << endl;
     auto& cell_map = this->game->cell_map; // Use reference to avoid copy
 
@@ -238,9 +250,9 @@ bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bi
 
         // Check if there's a cell to push
         if (this->game->does_cell_exist(fx, fy)) {
-            shared_ptr<Cell> cell = this->game->get_cell(fx, fy);
+            Cell* cell = this->game->get_cell(fx, fy).get();
             if (!cell->is_pushable(fdir)) {
-                cell->on_force(fdir, shared_from_this(), "push", dfdir, {}, this->tile_x, this->tile_y);
+                cell->on_force(fdir, this, "push", dfdir, {}, this->tile_x, this->tile_y);
                 fail = true;
             }
             if (cell->is_eatable(fdir)) {
@@ -276,7 +288,7 @@ bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bi
         }
 
         if (this->game->does_cell_exist(fx, fy)) {
-            shared_ptr<Cell> fcell = this->game->get_cell(fx, fy);
+            Cell* fcell = this->game->get_cell(fx, fy).get();
             if (is_true 
                 || (!trash_flag 
                 && !enemy_flag 
@@ -285,7 +297,7 @@ bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bi
                 && (is_disjoint(fcell->get_side(fdir), STORAGE_SET)))) {
                 int original_dir = this->dir;
                 this->dir += dfdir;
-                bool result = fcell->push(fdir, true, 1, INFINITY, speed, true, (move ? shared_from_this() : nullptr), is_true);
+                bool result = fcell->push(fdir, true, 1, INFINITY, speed, true, (move ? this : nullptr), is_true);
                 this->dir = original_dir;
                 if (!result) {
                     return is_true;
@@ -346,14 +358,14 @@ bool Cell::test_gen(int dir, int angle) {
     auto [dx, dy] = get<3>(this->game->increment_with_divergers(this->tile_x, this->tile_y, positive_modulo((dir-angle+2), 4)));
     auto [odx, ody] = get<3>(this->game->increment_with_divergers(this->tile_x, this->tile_y, dir));
     
-    shared_ptr<Cell> behind_cell;
+    Cell* behind_cell;
     if (this->game->does_cell_exist(this->tile_x + dx, this->tile_y+dy)) {
-        behind_cell = this->game->get_cell(this->tile_x + dx, this->tile_y+dy);
+        behind_cell = this->game->get_cell(this->tile_x + dx, this->tile_y+dy).get();
     } else {
         if (!this->get_side(dir).contains("memorygen")) {
             return false;
         }
-        behind_cell = make_shared<Cell>(*(this->stored_cell));
+        behind_cell = this->stored_cell;
     }
     
     // Create as shared_ptr from the beginning
@@ -385,7 +397,7 @@ shared_ptr<Cell> Cell::gen(int dir, shared_ptr<Cell> generated_cell) {
     if (game->does_cell_exist(get<0>(out_incr), get<1>(out_incr))) {
         auto front_cell = game->get_cell(get<0>(out_incr), get<1>(out_incr));
         if (front_cell->is_pushable(out_dir)) {
-            if (!front_cell->push(out_dir, true, 1, 1, 1, false, generated_cell)) {
+            if (!front_cell->push(out_dir, true, 1, 1, 1, false, generated_cell.get())) {
                 return nullptr;
             }
         }
@@ -420,9 +432,9 @@ void Cell::do_rot() {
 bool Cell::test_rot(int dir, int rot) {
     auto cell_map = this->game->cell_map;
     auto [dx, dy] = get_deltas(dir);
-    shared_ptr<Cell> target_cell = nullptr;
+    Cell* target_cell = nullptr;
     if (this->game->does_cell_exist(this->tile_x+dx, this->tile_y+dy)) {
-        target_cell = this->game->get_cell(this->tile_x+dx, this->tile_y+dy);
+        target_cell = this->game->get_cell(this->tile_x+dx, this->tile_y+dy).get();
     } else {
         return false;
     }
@@ -441,7 +453,7 @@ void Cell::rot(int rot) {
     }
 }
 
-bool Cell::mexican_standoff(shared_ptr<Cell> cell, bool destroy) {
+bool Cell::mexican_standoff(Cell* cell, bool destroy) {
     if (this->shielded || cell->shielded) return true;
     double dec_hp = min(this->hp, cell->hp);
     if (destroy) {
@@ -470,15 +482,15 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
     auto keep_alive = cell_map[this->game->pos_to_index(this->tile_x, this->tile_y)]; // don't kill me yet, i'm still useful...
     auto [new_x, new_y, ddir, a, b] = this->game->increment_with_divergers(this->tile_x, this->tile_y, dir, 0, true);
     shared_ptr<tuple<int, int, int, tuple<int, int>, int>> killer_cell = nullptr;
-    shared_ptr<Cell> actual_killer_cell = nullptr;
+    Cell* actual_killer_cell = nullptr;
     bool suicide_flag = false;
     bool enemy_flag = false;
     
     if (this->game->does_cell_exist(new_x, new_y)) {
-        auto cell = this->game->get_cell(new_x, new_y);
+        auto cell = this->game->get_cell(new_x, new_y).get();
         if (cell->is_eatable(b)) {
             suicide_flag = true;
-            auto ofret = cell->on_force(b, shared_from_this(), "nudge", 0, {}, this->tile_x, this->tile_y);
+            auto ofret = cell->on_force(b, this, "nudge", 0, {}, this->tile_x, this->tile_y);
         }
 
         if ((cell->get_side(dir+2+ddir).contains("enemy") || this->get_side(dir).contains("enemy")) && !cell->shielded && !this->shielded) {
@@ -505,7 +517,7 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
 
             suicide_flag = true;
             killer_cell = make_shared<tuple<int, int, int, tuple<int, int>, int>>(new_x, new_y, ddir, a, b);
-            actual_killer_cell = this->game->get_cell(new_x, new_y);
+            actual_killer_cell = this->game->get_cell(new_x, new_y).get();
         }
         else if (cell->cwgrabs && cell->ccwgrabs && is_grab && cell->dir == dir && move)  {
             //cell->grabs(....)
@@ -517,9 +529,9 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
         if (this->game->is_valid_pos(new_x, new_y)) {
             int index = this->game->pos_to_index(new_x, new_y);
             if (this->game->cell_map[index]) {
-                auto front_cell = this->game->get_cell(new_x, new_y);
+                auto front_cell = this->game->get_cell(new_x, new_y).get();
                 this->game->cell_map[this->game->pos_to_index(this->tile_x, this->tile_y)] = shared_from_this();
-                auto ofret = front_cell->on_force(b, shared_from_this(), "nudge", 0, {}, this->tile_x, this->tile_y);
+                auto ofret = front_cell->on_force(b, this, "nudge", 0, {}, this->tile_x, this->tile_y);
                 if (this->extra_properties.find("lifemissile") != this->extra_properties.end()) {
                     this->set_id("149");
                 }
@@ -538,7 +550,7 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
 
         if (suicide_flag) {
             if (!enemy_flag && killer_cell) {
-                auto ofret = this->game->get_cell(get<0>(*killer_cell), get<1>(*killer_cell))->on_force(b, shared_from_this(), "nudge", ddir, {}, this->tile_x, this->tile_y);
+                auto ofret = this->game->get_cell(get<0>(*killer_cell), get<1>(*killer_cell))->on_force(b, this, "nudge", ddir, {}, this->tile_x, this->tile_y);
                 this->game->get_cell(this->tile_x, this->tile_y).reset();
             }
             this->tile_x = get<0>(*killer_cell);
@@ -565,7 +577,7 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
 
 set<qual> Cell::on_force(
         int dir, 
-        shared_ptr<Cell> origin, 
+        Cell* origin, 
         string force_type, 
         int displacement, 
         map<string, bool> flags, // suppress is moved here
@@ -661,17 +673,13 @@ bool Cell::is_pushable(int dir) {
 
 
 set<string>& Cell::get_side(float dir2) {
-    // If this object is corrupted, return empty set
     static set<string> empty_set;
-    dir2 *= 2;
-    dir2 = positive_modulo(dir2, 8);
-    int normalized_dir = positive_modulo(-this->dir*2 + static_cast<int>(dir2), 8);
-
     
-    // Use safer array access
+    int normalized_dir = positive_modulo(-this->dir*2 + static_cast<int>(dir2*2), 8);
+    
     switch (normalized_dir) {
         case 0: return this->right;
-        case 1: return this->br;  
+        case 1: return this->br;
         case 2: return this->bottom;
         case 3: return this->bl;
         case 4: return this->left;

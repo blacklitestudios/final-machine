@@ -1,5 +1,12 @@
 #include <SFML/Graphics.hpp>
-#include <bits/stdc++.h>
+#include <memory>
+#include <set>
+#include <unordered_set>
+#include <map>
+#include <unordered_map>
+#include <string>
+#include <vector>
+#include <cmath>
 using namespace std;
 
 std::map<std::string, std::string> cell_names = {
@@ -36,18 +43,21 @@ vector<vector<vector<string>>> cell_cats_new = {
         {"3"},
     }, // Generators
     {
-
+        {"9", "10"}
     }, // Rotators 
     {
-
+        {"21"}
     }, // Forcers
     {
-
+        {"16"}
+    }, // Divergers
+    {
+        {"12", "13"}
     }, // Destroyers
     {
-
+        
     }, // Transformers
     {
-
+        {"20"}
     }, // Misc
 };
