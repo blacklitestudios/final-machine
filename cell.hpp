@@ -14,6 +14,8 @@ struct PairHash {
 
 enum qual {NudgeSucceeded};
 
+enum ForceReturn {failed, blocked, success};
+
 class CelPython;
 
 class Cell: public enable_shared_from_this<Cell> /* i have no idea what this does */ {
@@ -132,16 +134,16 @@ class Cell: public enable_shared_from_this<Cell> /* i have no idea what this doe
     );
 
     void do_push(int dir);
-    bool push(int dir, bool move, int hp=1, int force=0, int speed=1, bool bypass_bias = false, Cell* prev = nullptr, bool is_true=false);
+    ForceReturn push(int dir, bool move, int hp=1, int force=0, int speed=1, bool bypass_bias = false, Cell* prev = nullptr, bool is_true=false);
 
     void do_gen(int dir);
-    bool test_gen(int dir, int angle=0);
+    ForceReturn test_gen(int dir, int angle=0);
     shared_ptr<Cell> gen(int dir, shared_ptr<Cell> generated_cell);
 
     void do_rot();
     bool test_rot(int dir, int rot);
     void rot(int rot);
-    bool nudge(int dir, bool move, int force=0, int hp=1, bool is_grab=false);
+    ForceReturn nudge(int dir, bool move, int force=0, int hp=1, bool is_grab=false);
 
     double get_push_bias(int dir, double force, int times=-1, bool ignore_reverse=true);
     double get_forward_push_bias(int dir, double force=0.0, int times=-1);

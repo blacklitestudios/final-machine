@@ -15,6 +15,8 @@
 
 extern int DEFAULT_TILE_SIZE;
 
+
+
 using namespace std;
 
 // Static sets to avoid temporary allocations during heap corruption
@@ -227,7 +229,7 @@ void Cell::set_id(string id) {
     }
 }
 
-bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bias, Cell* prev, bool is_true) {
+ForceReturn Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bias, Cell* prev, bool is_true) {
     //cout << "pushing at pos " << tile_x << ", " << tile_y << endl;
     auto& cell_map = this->game->cell_map; // Use reference to avoid copy
 
@@ -300,7 +302,7 @@ bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bi
                 bool result = fcell->push(fdir, true, 1, INFINITY, speed, true, (move ? this : nullptr), is_true);
                 this->dir = original_dir;
                 if (!result) {
-                    return is_true;
+                    return is_true ? ForceReturn::success : ForceReturn::failed;
                 }
             }
         }
@@ -308,12 +310,12 @@ bool Cell::push(int dir, bool move, int hp, int force, int speed, bool bypass_bi
         // Now try to move this cell
         if (move) {
             //cout << "nudging at pos" << tile_x << ", " << tile_y << endl;
-            if (!this->nudge(dir, true)) return false;
+            if (!this->nudge(dir, true)) return ForceReturn::blocked;
         }
         
-        if (fail) return false;
+        if (fail) return ForceReturn::blocked;
     }
-    return true;
+    return ForceReturn::success;
 } 
 
 void Cell::do_push(int dir) {
@@ -353,7 +355,7 @@ void Cell::do_gen(int dir) {
 }
 
 
-bool Cell::test_gen(int dir, int angle) {
+ForceReturn Cell::test_gen(int dir, int angle) {
     auto cell_map = this->game->cell_map;
     auto [dx, dy] = get<3>(this->game->increment_with_divergers(this->tile_x, this->tile_y, positive_modulo((dir-angle+2), 4)));
     auto [odx, ody] = get<3>(this->game->increment_with_divergers(this->tile_x, this->tile_y, dir));
@@ -363,7 +365,7 @@ bool Cell::test_gen(int dir, int angle) {
         behind_cell = this->game->get_cell(this->tile_x + dx, this->tile_y+dy).get();
     } else {
         if (!this->get_side(dir).contains("memorygen")) {
-            return false;
+            return failed;
         }
         behind_cell = this->stored_cell;
     }
@@ -381,7 +383,7 @@ bool Cell::test_gen(int dir, int angle) {
     if (this->get_side(dir).contains("memorygen")) {}
     
     this->gen(dir, generated_cell);  // Pass the shared_ptr
-    return true;
+    return success;
 }
 
 shared_ptr<Cell> Cell::gen(int dir, shared_ptr<Cell> generated_cell) {
@@ -477,7 +479,7 @@ void Cell::check_hp() {
     }
 }
 
-bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
+ForceReturn Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
     auto& cell_map = this->game->cell_map;
     auto keep_alive = cell_map[this->game->pos_to_index(this->tile_x, this->tile_y)]; // don't kill me yet, i'm still useful...
     auto [new_x, new_y, ddir, a, b] = this->game->increment_with_divergers(this->tile_x, this->tile_y, dir, 0, true);
@@ -535,7 +537,7 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
                 if (this->extra_properties.find("lifemissile") != this->extra_properties.end()) {
                     this->set_id("149");
                 }
-                return ofret.contains(NudgeSucceeded);
+                return ofret.contains(NudgeSucceeded) ? success : failed;
             }
         }
     }
@@ -572,7 +574,7 @@ bool Cell::nudge(int dir, bool move, int force, int hp, bool is_grab) {
 
         
     }
-    return true; 
+    return success; 
 }
 
 set<qual> Cell::on_force(
